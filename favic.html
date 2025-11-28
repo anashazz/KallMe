@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KallMe</title>
+    <link rel="icon" type="image/svg+xml" href="fav.svg">
+    <!-- Load Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Inter font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles for a modern, dark theme look */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117; /* Dark background */
+            color: #c9d1d9;
+        }
+        .video-container {
+            position: relative;
+            background-color: #161b22;
+            border: 2px solid #30363d;
+        }
+        #localVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 0.75rem;
+        }
+        #remoteVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 0.75rem;
+        }
+        .local-box {
+            position: absolute;
+            bottom: 1rem;
+            right: 1rem;
+            width: 150px;
+            height: 100px;
+            z-index: 10;
+            border: 3px solid #58a6ff;
+            box-shadow: 0 0 10px rgba(88, 166, 255, 0.5);
+        }
+        @media (max-width: 768px) {
+            .local-box {
+                width: 100px;
+                height: 70px;
+                bottom: 0.5rem;
+                right: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 sm:p-8">
+
+    <header class="text-center mb-8">
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-[#58a6ff] mb-2">KallMe</h1>
+        <p class="text-sm text-gray-400">Join Any Call</p>
+    </header>
+
+    <div class="max-w-4xl mx-auto">
+        <!-- Status and User ID -->
+        <div class="bg-[#161b22] p-4 rounded-xl shadow-lg mb-6 border border-[#30363d]">
+            <p id="appStatus" class="font-semibold text-sm text-yellow-500">Initializing...</p>
+            <p class="text-xs mt-1 text-gray-500">Your User ID: <span id="currentUserId" class="font-mono text-gray-300 break-all"></span></p>
+        </div>
+
+        <!-- Video Display Area -->
+        <div id="videoDisplay" class="video-container rounded-xl w-full h-[60vh] md:h-[70vh] mb-6 relative">
+            <video id="remoteVideo" autoplay playsinline class="hidden w-full h-full"></video>
+            <div id="noVideoMsg" class="absolute inset-0 flex items-center justify-center text-center text-gray-600 text-lg">
+                <div class="p-8">
+                    <svg class="w-12 h-12 mx-auto mb-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M15 10v4m0-4h4m-4 0h-4m-4 0v4m0-4H7m4 0H7m4 0v-4"></path></svg>
+                    Start a Call or Join an existing one.
+                </div>
+            </div>
+            <!-- Local Video Box (Picture-in-Picture style) -->
+            <div class="local-box rounded-lg overflow-hidden">
+                <video id="localVideo" autoplay muted playsinline class="w-full h-full"></video>
+            </div>
+        </div>
+        
+        <!-- Authentication Controls -->
+        <div id="authControls" class="bg-[#161b22] p-6 rounded-xl shadow-lg border border-[#30363d] mb-6">
+            <h2 class="text-xl font-bold mb-4 text-[#58a6ff]">Sign In or Create Account</h2>
+            <input type="email" id="emailInput" placeholder="Email"
+                   class="w-full p-3 rounded-lg bg-[#0d1117] border border-gray-600 focus:ring-blue-500 focus:border-blue-500 text-gray-200 mb-3">
+            <input type="password" id="passwordInput" placeholder="Password (min 6 characters)"
+                   class="w-full p-3 rounded-lg bg-[#0d1117] border border-gray-600 focus:ring-blue-500 focus:border-blue-500 text-gray-200 mb-4">
+            <div class="flex gap-4">
+                <button id="signInButton" onclick="handleSignIn()"
+                        class="flex-1 px-6 py-3 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md">
+                    Sign In
+                </button>
+                <button id="signUpButton" onclick="handleSignUp()"
+                        class="flex-1 px-6 py-3 rounded-lg font-semibold bg-purple-600 hover:bg-purple-700 transition duration-150 shadow-md">
+                    Sign Up
+                </button>
+            </div>
+        </div>
+
+        <!-- Call Controls -->
+        <div id="callControls" class="bg-[#161b22] p-6 rounded-xl shadow-lg border border-[#30363d] hidden">
+            <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                <input type="text" id="callIdInput" placeholder="Enter Call ID to Join or Create"
+                       class="flex-grow p-3 rounded-lg bg-[#0d1117] border border-gray-600 focus:ring-blue-500 focus:border-blue-500 text-gray-200">
+                <button id="createButton" onclick="createCall()"
+                        class="px-6 py-3 rounded-lg font-semibold bg-green-600 hover:bg-green-700 transition duration-150 shadow-md">
+                    Create New Call
+                </button>
+                <button id="joinButton" onclick="joinCall()"
+                        class="px-6 py-3 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 transition duration-150 shadow-md">
+                    Join Call
+                </button>
+            </div>
+
+            <div class="flex justify-center gap-4">
+                <button id="hangupButton" onclick="hangup()" disabled
+                        class="px-8 py-3 rounded-lg font-semibold bg-red-600 hover:bg-red-700 transition duration-150 shadow-md disabled:opacity-50">
+                    End Call
+                </button>
+                <button id="signOutButton" onclick="signOutUser()"
+                        class="px-8 py-3 rounded-lg font-semibold bg-gray-600 hover:bg-gray-700 transition duration-150 shadow-md">
+                    Sign Out
+                </button>
+            </div>
+        </div>
+
+        <!-- Custom Modal for Notifications -->
+        <div id="modal" class="fixed inset-0 bg-black bg-opacity-75 hidden items-center justify-center z-50">
+            <div class="bg-[#161b22] p-8 rounded-xl shadow-2xl max-w-sm w-full border border-[#30363d]">
+                <h3 id="modalTitle" class="text-xl font-bold mb-4 text-[#58a6ff]">Notification</h3>
+                <p id="modalMessage" class="mb-6 text-gray-300"></p>
+                <button onclick="document.getElementById('modal').classList.add('hidden');"
+                        class="w-full px-4 py-2 rounded-lg font-semibold bg-blue-600 hover:bg-blue-700 transition duration-150">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, addDoc, onSnapshot, collection, query, deleteDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- GLOBAL VARIABLES ---
+        const specificFirebaseConfig = {
+            apiKey: "AIzaSyDJ9mRBKXL7Pqwwu9w1gMGvwyMUacVrWMA",
+            authDomain: "centre-of-memes.firebaseapp.com",
+            projectId: "centre-of-memes",
+            storageBucket: "centre-of-memes.firebasestorage.app",
+            messagingSenderId: "973133818999",
+            appId: "1:973133818999:web:291dfcee6bde9367e42a72",
+            measurementId: "G-D3G1ZQ2E64"
+        };
+
+        const firebaseConfig = specificFirebaseConfig;
+        const appId = specificFirebaseConfig.projectId;
+
+        let db, auth;
+        let userId = null; // Start with no user
+
+        // WebRTC variables
+        let localStream;
+        let remoteStream;
+        let peerConnection;
+        let currentRoomId;
+
+        // STUN/TURN configuration
+        const rtcConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                {
+                    urls: 'turn:openrelay.metered.ca:80',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                },
+                {
+                    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                },
+            ]
+        };
+
+        // --- DOM Elements ---
+        const localVideo = document.getElementById('localVideo');
+        const remoteVideo = document.getElementById('remoteVideo');
+        const noVideoMsg = document.getElementById('noVideoMsg');
+        const callIdInput = document.getElementById('callIdInput');
+        const appStatus = document.getElementById('appStatus');
+        const currentUserIdSpan = document.getElementById('currentUserId');
+        const createButton = document.getElementById('createButton');
+        const joinButton = document.getElementById('joinButton');
+        const hangupButton = document.getElementById('hangupButton');
+        
+        // New Auth Elements
+        const emailInput = document.getElementById('emailInput');
+        const passwordInput = document.getElementById('passwordInput');
+        const authControls = document.getElementById('authControls');
+        const callControls = document.getElementById('callControls');
+        const signInButton = document.getElementById('signInButton');
+        const signUpButton = document.getElementById('signUpButton');
+
+
+        // --- UTILITY FUNCTIONS ---
+
+        /** Displays a custom modal notification instead of alert() */
+        function showModal(title, message) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = message;
+            document.getElementById('modal').classList.remove('hidden');
+            document.getElementById('modal').classList.add('flex');
+        }
+
+        /** Handles retries for API calls */
+        async function fetchWithRetry(apiCall, maxRetries = 3, delay = 1000) {
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    return await apiCall();
+                } catch (error) {
+                    if (i === maxRetries - 1) throw error;
+                    // Exponential backoff
+                    await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
+                }
+            }
+        }
+
+        /** Reference to the Firestore collection for public calls */
+        function getCallCollection() {
+            // Path: /artifacts/{appId}/public/data/calls
+            return collection(db, 'artifacts', appId, 'public', 'data', 'calls');
+        }
+
+        // --- FIREBASE AUTHENTICATION FLOW ---
+
+        function updateUIForAuthState(user) {
+            if (user) {
+                userId = user.uid;
+                currentUserIdSpan.textContent = userId;
+                appStatus.textContent = 'Signed in. Ready to connect.';
+                appStatus.classList.replace('text-yellow-500', 'text-green-500');
+                authControls.classList.add('hidden');
+                callControls.classList.remove('hidden');
+            } else {
+                userId = null;
+                currentUserIdSpan.textContent = 'None (Please sign in)';
+                appStatus.textContent = 'Please sign in or sign up to use the app.';
+                appStatus.classList.replace('text-green-500', 'text-yellow-500');
+                authControls.classList.remove('hidden');
+                callControls.classList.add('hidden');
+            }
+        }
+        
+        window.handleSignUp = async function() {
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+            if (!email || password.length < 6) {
+                return showModal("Input Error", "Please enter a valid email and a password of at least 6 characters.");
+            }
+            
+            signInButton.disabled = signUpButton.disabled = true;
+            appStatus.textContent = 'Attempting sign up...';
+            
+            try {
+                await createUserWithEmailAndPassword(auth, email, password);
+                // onAuthStateChanged will handle UI update
+                showModal("Success", "Account created and signed in successfully!");
+            } catch (error) {
+                console.error("Sign Up Error:", error);
+                showModal("Sign Up Failed", error.message);
+            } finally {
+                signInButton.disabled = signUpButton.disabled = false;
+            }
+        };
+
+        window.handleSignIn = async function() {
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+            if (!email || !password) {
+                return showModal("Input Error", "Please enter your email and password.");
+            }
+            
+            signInButton.disabled = signUpButton.disabled = true;
+            appStatus.textContent = 'Attempting sign in...';
+            
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                // onAuthStateChanged will handle UI update
+                showModal("Success", "Signed in successfully!");
+            } catch (error) {
+                console.error("Sign In Error:", error);
+                showModal("Sign In Failed", error.message);
+            } finally {
+                signInButton.disabled = signUpButton.disabled = false;
+            }
+        };
+
+        window.signOutUser = async function() {
+            await hangup(); // End any active call first
+            try {
+                await signOut(auth);
+                showModal("Signed Out", "You have been signed out.");
+            } catch(error) {
+                console.error("Sign Out Error:", error);
+                showModal("Error", "Could not sign out. Please check the console.");
+            }
+            // onAuthStateChanged will handle UI switch
+        };
+
+
+        async function initFirebase() {
+            try {
+                // setLogLevel('debug'); // Uncomment for Firestore debugging
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                // Set up listener to manage UI state based on authentication
+                onAuthStateChanged(auth, updateUIForAuthState);
+                
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+                showModal("Error", "Failed to initialize Firebase services. Check console for details.");
+            }
+        }
+
+        // --- WEBRTC SETUP ---
+
+        /** Get local audio and video stream */
+        async function getMedia() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                localVideo.srcObject = localStream;
+                localVideo.play();
+                localVideo.classList.remove('hidden');
+                return true;
+            } catch (error) {
+                console.error("Error accessing media devices: ", error);
+                showModal("Media Error", "Could not access camera and microphone. Please ensure permissions are granted.");
+                return false;
+            }
+        }
+
+        /** Set up peer connection listeners */
+        function setupPeerConnection(roomRef) {
+            peerConnection = new RTCPeerConnection(rtcConfig);
+
+            // 1. Listen for remote tracks and attach to remote video element
+            peerConnection.ontrack = (event) => {
+                remoteStream = event.streams[0];
+                remoteVideo.srcObject = remoteStream;
+                remoteVideo.classList.remove('hidden');
+                noVideoMsg.classList.add('hidden');
+            };
+
+            // 2. Add all local tracks to the peer connection
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+
+            // 3. Collect ICE candidates and save them to Firestore
+            // WebRTC will first try STUN (P2P), and fall back to TURN (Relay) if STUN fails.
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    const candidateData = event.candidate.toJSON();
+                    const candidatesCollection = collection(roomRef, peerConnection.localDescription.type === 'offer' ? 'offerCandidates' : 'answerCandidates');
+                    fetchWithRetry(() => addDoc(candidatesCollection, candidateData))
+                        .catch(e => console.error("Error adding ICE candidate to Firestore:", e));
+                }
+            };
+        }
+
+        // --- CALL HANDLING FUNCTIONS ---
+
+        window.createCall = async function() {
+            if (!userId || !db) return showModal("Wait", "App not ready or user not signed in.");
+            const callId = callIdInput.value.trim();
+            if (!callId) return showModal("Input Required", "Please enter a unique Call ID.");
+
+            const mediaOK = await getMedia();
+            if (!mediaOK) return;
+
+            // 1. Create a new room reference
+            currentRoomId = callId;
+            const roomRef = doc(getCallCollection(), currentRoomId);
+            const roomSnapshot = await fetchWithRetry(() => getDoc(roomRef));
+
+            if (roomSnapshot.exists()) {
+                return showModal("Error", `Call ID '${callId}' already exists. Please choose a different one.`);
+            }
+
+            appStatus.textContent = `Creating call: ${currentRoomId}...`;
+            createButton.disabled = joinButton.disabled = true;
+            hangupButton.disabled = false;
+
+            // 2. Setup RTCPeerConnection
+            setupPeerConnection(roomRef);
+
+            // 3. Create Offer
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+
+            // 4. Save Offer to Firestore
+            const offerPayload = {
+                sdp: peerConnection.localDescription.sdp,
+                type: peerConnection.localDescription.type,
+            };
+            await fetchWithRetry(() => setDoc(roomRef, {
+                offer: offerPayload,
+                callerId: userId,
+                createdAt: new Date().toISOString()
+            }));
+
+            appStatus.textContent = `Call created. Waiting for other user to join ${currentRoomId}...`;
+
+            // 5. Listen for remote answer
+            onSnapshot(roomRef, async (snapshot) => {
+                const data = snapshot.data();
+                if (data && data.answer && peerConnection.remoteDescription === null) {
+                    appStatus.textContent = 'Received remote answer. Establishing connection...';
+                    const answer = new RTCSessionDescription(data.answer);
+                    await peerConnection.setRemoteDescription(answer);
+                }
+            });
+
+            // 6. Listen for remote ICE candidates (from the answering party)
+            onSnapshot(collection(roomRef, 'answerCandidates'), (snapshot) => {
+                snapshot.docChanges().forEach(async (change) => {
+                    if (change.type === 'added') {
+                        const candidate = new RTCIceCandidate(change.doc.data());
+                        await peerConnection.addIceCandidate(candidate);
+                    }
+                });
+            });
+            showModal("Call ID", `Share this Call ID: ${currentRoomId} with the person you want to call.`);
+        };
+
+        window.joinCall = async function() {
+            if (!userId || !db) return showModal("Wait", "App not ready or user not signed in.");
+            const callId = callIdInput.value.trim();
+            if (!callId) return showModal("Input Required", "Please enter the Call ID to join.");
+
+            const mediaOK = await getMedia();
+            if (!mediaOK) return;
+
+            // 1. Get room data
+            currentRoomId = callId;
+            const roomRef = doc(getCallCollection(), currentRoomId);
+            const roomSnapshot = await fetchWithRetry(() => getDoc(roomRef));
+
+            if (!roomSnapshot.exists()) {
+                return showModal("Error", `Call ID '${callId}' does not exist.`);
+            }
+
+            appStatus.textContent = `Joining call: ${currentRoomId}...`;
+            createButton.disabled = joinButton.disabled = true;
+            hangupButton.disabled = false;
+
+            const data = roomSnapshot.data();
+            if (!data || !data.offer) {
+                 return showModal("Error", `Call ID '${callId}' found, but no active offer.`);
+            }
+
+            // 2. Setup RTCPeerConnection
+            setupPeerConnection(roomRef);
+
+            // 3. Set remote offer and create answer
+            const offer = new RTCSessionDescription(data.offer);
+            await peerConnection.setRemoteDescription(offer);
+
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+
+            // 4. Save Answer to Firestore
+            const answerPayload = {
+                sdp: peerConnection.localDescription.sdp,
+                type: peerConnection.localDescription.type,
+            };
+            await fetchWithRetry(() => setDoc(roomRef, { answer: answerPayload, calleeId: userId }, { merge: true }));
+
+            // 5. Listen for remote ICE candidates (from the offering party)
+            onSnapshot(collection(roomRef, 'offerCandidates'), (snapshot) => {
+                snapshot.docChanges().forEach(async (change) => {
+                    if (change.type === 'added') {
+                        const candidate = new RTCIceCandidate(change.doc.data());
+                        await peerConnection.addIceCandidate(candidate);
+                    }
+                });
+            });
+
+            appStatus.textContent = `Connected to call ${currentRoomId}.`;
+        };
+
+        window.hangup = async function() {
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+
+            // Hide remote video and reset UI
+            remoteVideo.srcObject = null;
+            remoteVideo.classList.add('hidden');
+            noVideoMsg.classList.remove('hidden');
+
+            // Optionally delete the call room from Firestore
+            if (currentRoomId) {
+                 const roomRef = doc(getCallCollection(), currentRoomId);
+                 // Only attempt to delete if the user is signed in and Firestore is initialized
+                 if (userId && db) {
+                     await fetchWithRetry(() => deleteDoc(roomRef))
+                        .then(() => console.log(`Room ${currentRoomId} deleted.`))
+                        .catch(e => console.warn(`Could not delete room ${currentRoomId}:`, e));
+                 }
+                 currentRoomId = null;
+            }
+
+            // Reset buttons and status
+            createButton.disabled = joinButton.disabled = false;
+            hangupButton.disabled = true;
+            if (userId) {
+                appStatus.textContent = 'Call ended. Ready for new connection.';
+            } else {
+                appStatus.textContent = 'Signed out. Please sign in to start.';
+            }
+            appStatus.classList.replace('text-green-500', 'text-yellow-500');
+            callIdInput.value = '';
+        };
+
+
+        // --- MAIN ENTRY POINT ---
+        window.onload = initFirebase;
+
+    </script>
+</body>
+</html>
